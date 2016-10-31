@@ -159,7 +159,7 @@ namespace TerraViewer
 
                 UpdateRotation(); ;
 
-                Sprite2d.Draw(renderContext, points, points.Length, texture, TriangleStrip ? SharpDX.Direct3D.PrimitiveTopology.TriangleStrip : SharpDX.Direct3D.PrimitiveTopology.TriangleList);
+                Sprite2d.Draw(renderContext, points, points.Length, texture, TriangleStrip ? SharpDX.Direct3D.PrimitiveTopology.TriangleStrip : SharpDX.Direct3D.PrimitiveTopology.TriangleList, transparancy);
             }
         }
 
@@ -1149,6 +1149,8 @@ namespace TerraViewer
         {
             return;
         }
+
+
 
         public override void InitiaizeGeometry()
         {

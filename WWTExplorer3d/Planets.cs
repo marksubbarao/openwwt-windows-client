@@ -929,10 +929,10 @@ namespace TerraViewer
                 //    1) ellipses representing the osculating Keplerian elements
                 //    2) orbit 'traces' which plot the actual path an object has traveled over some period of time
                 //
-                // Ellipses can be rendered very efficiently by offloading most of the computation to the CPU. However,
-                // the orbital elements of significantly perturbed bodies vary enough that the osculating ellipse appears
-                // to pulse when the time rate is accelerated. This is confusing to most people, so we avoid it by using
-                // traces for the outer planets (which perturb each other) and the Earth (where the orbit is affected
+                // Ellipses can be rendered very efficiently by offloading most of the computation from the CPU to the GPU. 
+                // However, the orbital elements of significantly perturbed bodies vary enough that the osculating ellipse
+                // appears to pulse when the time rate is accelerated. This is confusing to most people, so we avoid it by 
+                // using traces for the outer planets (which perturb each other) and the Earth (where the orbit is affected
                 // by the Moon.)
                 orbitTraces = new OrbitTrace[20];
                 orbitTraces[(int)SolarSystemObjects.Earth]   = new OrbitTrace(SolarSystemObjects.Earth,   100,   1    * 365.25);
@@ -1289,7 +1289,13 @@ namespace TerraViewer
             
 
             float fade = (float)Math.Min(1, Math.Max(Math.Log(distss, 10) - 8.6, 0));
+            //
+            // Sync orbit state
 
+            if (Settings.Active.PlanetOrbitsFilter != Properties.Settings.Default.PlanetOrbitsFilter)
+            {
+                Properties.Settings.Default.PlanetOrbitsFilter = Settings.Active.PlanetOrbitsFilter;
+            }
 
             if (Properties.Settings.Default.SolarSystemOrbits.State ) // && fade > 0)
             {
@@ -1763,7 +1769,7 @@ namespace TerraViewer
 
                 SharpDX.Matrix wvp = (worldMatrix * viewMatrix * renderContext.Projection).Matrix11;
                 shader.WVPMatrix = wvp;
-                shader.DiffuseColor = new SharpDX.Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+                shader.DiffuseColor = new SharpDX.Vector4(1.0f, 1.0f, 1.0f, opacity);
 
                 Matrix3d invWorld = worldMatrix;
                 invWorld.Invert();
@@ -1958,6 +1964,25 @@ namespace TerraViewer
                             eclipseShadowCount = 1;
                         }
                     }
+
+                    if (planetID == (int)SolarSystemObjects.Moon)
+                    {
+                        if (sizeIndex < 4)
+                        {
+                            double earthDist = Math.Abs((planet3dLocations[(int)SolarSystemObjects.Sun] - planet3dLocations[(int)SolarSystemObjects.Earth]).Length());
+                            double moonDist = Math.Abs((planet3dLocations[(int)SolarSystemObjects.Sun] - planet3dLocations[(int)SolarSystemObjects.Moon]).Length());
+
+                            if (moonDist > earthDist)
+                            {
+
+                                float width = Settings.Active.SolarSystemScale * .00028f;
+                                SetupShadow(renderContext, centerPoint, width, SolarSystemObjects.Earth, 0);
+                                eclipseShadowCount = 1;
+                            }
+                        }
+
+                    }
+
 
                     // Eclipse shadow setup for Jupiter
                     // Shadow widths based only on moon diameter in relation to Moon diameter
@@ -2794,7 +2819,7 @@ namespace TerraViewer
                         renderContext.setRasterizerState(TriangleCullMode.CullClockwise);
                         Earth3d.MainWindow.DrawTiledSphere(planet, 100, Color.White);
 
-                        if (planetID == (int)SolarSystemObjects.Earth && Settings.Active.ShowClouds)
+                        if (planetID == (int)SolarSystemObjects.Earth && Properties.Settings.Default.ShowClouds.State)
                         {
                             if (CloudTexture != null)
                             {
@@ -2807,7 +2832,7 @@ namespace TerraViewer
                                     cloudShaderKey.style = PlanetSurfaceStyle.Emissive;
                                 }
 
-                                SetupPlanetSurfaceEffect(renderContext, cloudShaderKey, 1.0f);
+                                SetupPlanetSurfaceEffect(renderContext, cloudShaderKey, Properties.Settings.Default.ShowClouds.Opacity);
                                 SetAtmosphereConstants(renderContext, planetID, 1.0f, CalcSkyGeometryHeight(planetID));
 
                                 renderContext.MainTexture = CloudTexture;

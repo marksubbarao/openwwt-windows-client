@@ -74,6 +74,12 @@ namespace TerraViewer
         SwapChain swapChain;
         Factory factory;
         Texture2D backBuffer;
+
+        public Texture2D BackBuffer
+        {
+            get { return backBuffer; }
+            set { backBuffer = value; }
+        }
         RenderTargetView renderView;
         SamplerState sampler;
 
@@ -91,15 +97,15 @@ namespace TerraViewer
         private TriangleCullMode currentCullMode = TriangleCullMode.CullClockwise;
         private bool currentMultisampleState = true;
         private RasterizerState[] standardRasterizerStates;
-        private Viewport viewPort;
+        private ViewportF viewPort;
 
-        public Viewport ViewPort
+        public ViewportF ViewPort
         {
             get { return viewPort; }
             set
             {
                 viewPort = value;
-                devContext.Rasterizer.SetViewports(viewPort);
+                devContext.Rasterizer.SetViewport(viewPort);
             }
         }
 
@@ -125,7 +131,7 @@ namespace TerraViewer
             get { return sRGB ? Format.R8G8B8A8_UNorm_SRgb : Format.R8G8B8A8_UNorm; }
         }
 
-        public RenderContext11(System.Windows.Forms.Control control)
+        public RenderContext11(System.Windows.Forms.Control control, bool forceNoSRGB = false)
         {
 
             bool failed = true;
@@ -139,7 +145,7 @@ namespace TerraViewer
                         BufferCount = 1,
                         ModeDescription =
                             new ModeDescription(control.ClientSize.Width, control.ClientSize.Height,
-                                                new Rational(60, 1), DefaultColorFormat),
+                                                new Rational(60, 1), Format.R8G8B8A8_UNorm),
                         IsWindowed = true,
                         OutputHandle = control.Handle,
                         SampleDescription = new SampleDescription(MultiSampleCount, 0),
@@ -191,9 +197,12 @@ namespace TerraViewer
 
             if (!Downlevel)
             {
-                sRGB = true;
-                dv1 = device.QueryInterface<Device1>();
-                dv1.MaximumFrameLatency = 1;
+                if (!forceNoSRGB)
+                {
+                    sRGB = true;
+                }
+                //dv1 = device.QueryInterface<Device1>();
+                //dv1.MaximumFrameLatency = 1;
             }
 
             // Ignore all windows events
@@ -327,6 +336,33 @@ namespace TerraViewer
 
         }
 
+        public void SetOffscreenRenderTargets(RenderTargetView targetTextureView, DepthStencilView depthBufferView, int width, int height)
+        {
+            currentTargetView = targetTextureView;
+
+            if (depthBuffer != null)
+            {
+                currentDepthView = depthBufferView;
+            }
+            else
+            {
+                currentDepthView = null;
+            }
+
+            devContext.OutputMerger.ResetTargets();
+            ViewPort = new Viewport(0, 0, width, height, 0.0f, 1.0f);
+
+            if (depthBuffer != null)
+            {
+                devContext.OutputMerger.SetTargets(depthBufferView, targetTextureView);
+            }
+            else
+            {
+                devContext.OutputMerger.SetTargets(targetTextureView);
+
+            }
+
+        }
 
         public Bitmap GetScreenBitmap()
         {
@@ -1254,8 +1290,13 @@ ambientLightColor.B / 255.0f);
         public void Present(bool frameSync)
         {
             swapChain.Present(frameSync ? 1 : 0, PresentFlags.None);
+            
         }
 
+        public void SetFullScreenState(bool fullScreen)
+        {
+            swapChain.SetFullscreenState(fullScreen, null);
+        }
 
         public void SaveBackBuffer(string filename, ImageFileFormat format)
         {
